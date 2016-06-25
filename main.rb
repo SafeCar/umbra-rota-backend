@@ -72,6 +72,38 @@ Thread.new do
       $data = JSON.parse(Net::HTTP.get('area2.mobilecinq.com', '/ceasimulator4/getData.php', port = 8089))['records'].select do |signal|
         signal_list.include?(signal['signal']) || (signal['signal'] == 'GPS' && signal['signal2'] == 'Current')
       end
+
+      # GPS
+
+      # Crash
+      if $data[1]['value'] == '1'
+        $sockets_airbag_crash.each do |ws|
+          EM.next_tick do
+            ws.send({message: 'The driver has met a car crash'}.to_json)
+            ws.rack_response
+            $sockets_airbag_crash.delete(ws)
+          end
+        end
+      end
+
+      # Seat belt
+      #puts $data[2].to_json
+      if $data[2]['value'] == '0'
+        #puts $sockets_seatbelt.to_json
+        $sockets_seatbelt.each do |ws|
+          EM.next_tick do
+            ws.send({message: 'The driver is not driving with a seatbelt fastened'}.to_json)
+            ws.rack_response
+            $sockets_seatbelt.delete(ws)
+          end
+        end
+      end
+
+      # Speed
+      if $data[4]['value'].to_i >= 120
+        $sockets_speed.each do |ws|
+      end
+
       puts $data.to_json
       sleep 10
     rescue Exception => e
