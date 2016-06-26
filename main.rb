@@ -12,6 +12,7 @@ $sockets_airbag_crash = []
 $sockets_airbag = []
 $sockets_location = []
 $sockets_speed = []
+$called = false
 
 get '/auth_test' do
   {status: 'ok'}.to_json
@@ -77,6 +78,16 @@ Thread.new do
 
       # Crash
       if $data[1]['value'] == '1'
+        unless $called
+          $called = true
+          Net::HTTP.start('ringer.azurewebsites.net', 80) {|http|
+            http.post('/api/voice/',
+                      '{"telephone":"+8618521598192","name":"Doctor James Marcus","pronoun":"him","VIN":"455K","lat":51.503262,"lon":-0.127701}',
+                      initheader = {'Content-Type' => 'application/json'}) do |r|
+            end
+          }
+        end
+
         $sockets_airbag_crash.each do |ws|
           EM.next_tick do
             ws.send({message: 'The driver has met a car crash'}.to_json)
@@ -102,6 +113,12 @@ Thread.new do
       # Speed
       if $data[4]['value'].to_i >= 120
         $sockets_speed.each do |ws|
+          EM.next_tick do
+            ws.send({message: 'The driver is overspeed'}.to_json)
+            ws.rack_response
+            $sockets_speed.delete(ws)
+          end
+        end
       end
 
       puts $data.to_json
